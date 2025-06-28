@@ -91,7 +91,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 'ignoreerrors': True,
                 'geo_bypass': True,
                 'nocheckcertificate': True,
-                'cookiefile': None,
+                'cookiefile': 'cookies.txt',
                 'extractor_retries': 5,  # زيادة محاولات الاستخراج
                 'socket_timeout': 60,  # زيادة مهلة الانتظار
                 'concurrent_fragment_downloads': 1,  # لتجنب مشاكل التنزيل المتزامن
@@ -241,7 +241,7 @@ async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_T
                 'ignoreerrors': True,
                 'geo_bypass': True,
                 'nocheckcertificate': True,
-                'cookiefile': None,
+                'cookiefile': 'cookies.txt',
                 'extractor_retries': 5,
                 'socket_timeout': 60,
                 'external_downloader_args': ['--proxy', ''],
