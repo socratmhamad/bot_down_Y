@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TOKEN = os.getenv("6767447234:AAHODYTwpqlNl0mbeGLK9qAtgKVHfHC0e40")
+TOKEN = os.getenv("TOKEN")
 DOWNLOAD_FOLDER = 'downloads'
 
 if not os.path.exists(DOWNLOAD_FOLDER):
