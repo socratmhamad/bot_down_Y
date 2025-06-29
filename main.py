@@ -170,3 +170,21 @@ async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_T
         await status_msg.edit_text(f"حدث خطأ أثناء التحويل:\n{str(e)}\nيرجى المحاولة برابط آخر أو فيديو أقصر.")
 
 # إضافة باقي إعدادات البوت (start, handlers, إلخ) هنا...
+def main() -> None:
+    application = ApplicationBuilder().token(TOKEN).build()
+
+    application.add_handler(CommandHandler("start", start))  # Handler for /start command
+    application.add_handler(CallbackQueryHandler(button_handler))  # Handler for button presses
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))  # Handle messages
+
+    application.run_polling()
+
+if __name__ == '__main__':
+    main()
+
+
+from keep_alive import keep_alive
+
+if __name__ == '__main__':
+    keep_alive()  # تشغيل خادم Flask
+    main()  # تشغيل بوت التلغرام
