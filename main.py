@@ -2,14 +2,17 @@ import os
 import subprocess
 import logging
 from yt_dlp import YoutubeDL
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, CallbackQueryHandler,
+    MessageHandler, ContextTypes, filters
+)
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 
 # إعداد التسجيل
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = '6767447234:AAHODYTwpqlNl0mbeGLK9qAtgKVHfHC0e40'  # ضع توكن البوت هنا
+TOKEN = '6767447234:AAHODYTwpqlNl0mbeGLK9qAtgKVHfHC0e40'  # استبدل بتوكن بوتك
 DOWNLOAD_FOLDER = 'downloads'
 if not os.path.exists(DOWNLOAD_FOLDER):
     os.makedirs(DOWNLOAD_FOLDER)
@@ -27,29 +30,43 @@ HAS_FFMPEG = check_ffmpeg()
 def compress_video(input_path, output_path):
     command = [
         'ffmpeg', '-i', input_path,
-        '-vcodec', 'libx264', '-crf', '28',  # جودة متوسطة مع ضغط جيد
+        '-vcodec', 'libx264', '-crf', '28',  # ضغط مع جودة مقبولة
         '-preset', 'fast',
+        '-vf', 'scale=640:-2',  # تقليل العرض إلى 640 بكسل مع الحفاظ على النسبة
+        '-c:a', 'copy',
         output_path
     ]
     subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("تنزيل فيديو", callback_data='download_video'),
-         InlineKeyboardButton("تحويل فيديو إلى صوت", callback_data='convert_video_to_audio')]
+        [InlineKeyboardButton("⬇️ تنزيل فيديو", callback_data='download_video')],
+        [InlineKeyboardButton("🎵 تحويل فيديو إلى صوت", callback_data='convert_video_to_audio')],
+        [InlineKeyboardButton("ℹ️ حول البوت", callback_data='about')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text('اختر خياراً:', reply_markup=reply_markup)
+    await update.message.reply_text(
+        "مرحبًا! أنا بوت تحميل فيديوهات يوتيوب.\n"
+        "اختر ما تريد القيام به من الخيارات أدناه:",
+        reply_markup=reply_markup
+    )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     if query.data == 'download_video':
-        await query.message.reply_text('أرسل رابط YouTube لتنزيل الفيديو.')
+        await query.message.reply_text("✨ أرسل لي رابط فيديو يوتيوب لتنزيله بجودة مناسبة.")
         context.user_data['action'] = 'download_video'
     elif query.data == 'convert_video_to_audio':
-        await query.message.reply_text('أرسل رابط YouTube لتحويل الفيديو إلى صوت.')
+        await query.message.reply_text("🎧 أرسل لي رابط فيديو يوتيوب لتحويله إلى ملف صوتي MP3.")
         context.user_data['action'] = 'convert_video_to_audio'
+    elif query.data == 'about':
+        await query.message.reply_text(
+            "بوت تحميل فيديوهات يوتيوب\n"
+            "يدعم تنزيل الفيديوهات بجودة 480p مع ضغط لتقليل الحجم.\n"
+            "يدعم تحويل الفيديوهات إلى ملفات صوتية MP3.\n"
+            "مطور بواسطة ChatGPT 🤖"
+        )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = context.user_data.get('action')
@@ -58,21 +75,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif action == 'convert_video_to_audio':
         await convert_video_to_audio(update, context)
     else:
-        await update.message.reply_text('يرجى اختيار خيار أولاً.')
+        await update.message.reply_text(
+            "يرجى اختيار خيار من القائمة أولاً باستخدام الأمر /start."
+        )
 
 async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not HAS_FFMPEG:
-        await update.message.reply_text("ffmpeg غير مثبت، لا يمكن تنزيل الفيديو.")
+        await update.message.reply_text("❌ ffmpeg غير مثبت، لا يمكن تنزيل الفيديو.")
         return
 
     url = update.message.text.strip()
     chat_id = update.message.chat_id
 
     if not ('youtube.com' in url or 'youtu.be' in url):
-        await update.message.reply_text("الرابط غير صالح. يرجى إرسال رابط YouTube صحيح.")
+        await update.message.reply_text("❌ الرابط غير صالح. يرجى إرسال رابط YouTube صحيح.")
         return
 
-    status_msg = await update.message.reply_text("جاري تنزيل الفيديو بجودة 480p...")
+    status_msg = await update.message.reply_text("⏳ جاري تنزيل الفيديو بجودة 480p...")
 
     ydl_opts = {
         'format': 'best[height<=480][ext=mp4]/worst',
@@ -103,14 +122,17 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         size_mb = os.path.getsize(compressed_path) / (1024 * 1024)
         if size_mb > 50:
-            await status_msg.edit_text(f"حجم الفيديو المضغوط ({size_mb:.1f} MB) ما زال أكبر من الحد المسموح به (50MB). يرجى اختيار فيديو أصغر.")
+            await status_msg.edit_text(
+                f"⚠️ حجم الفيديو المضغوط ({size_mb:.1f} MB) أكبر من الحد المسموح به (50MB).\n"
+                "يرجى اختيار فيديو أصغر أو رابط آخر."
+            )
             os.remove(filename)
             os.remove(compressed_path)
             return
 
-        await status_msg.edit_text("تم التنزيل والضغط، جاري الإرسال كملف وثيقة...")
+        await status_msg.edit_text("✅ تم التنزيل والضغط، جاري الإرسال...")
         with open(compressed_path, 'rb') as f:
-            await context.bot.send_document(chat_id=chat_id, document=f, filename=os.path.basename(compressed_path))
+            await context.bot.send_video(chat_id=chat_id, video=f, supports_streaming=True)
         await status_msg.delete()
 
         os.remove(filename)
@@ -118,21 +140,24 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logger.error(f"خطأ في تنزيل الفيديو: {e}")
-        await status_msg.edit_text(f"حدث خطأ أثناء تنزيل الفيديو:\n{str(e)}\nيرجى المحاولة برابط آخر أو فيديو أقصر.")
+        await status_msg.edit_text(
+            f"❌ حدث خطأ أثناء تنزيل الفيديو:\n{str(e)}\n"
+            "يرجى المحاولة برابط آخر أو فيديو أقصر."
+        )
 
 async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not HAS_FFMPEG:
-        await update.message.reply_text("ffmpeg غير مثبت، لا يمكن تحويل الفيديو إلى صوت.")
+        await update.message.reply_text("❌ ffmpeg غير مثبت، لا يمكن تحويل الفيديو إلى صوت.")
         return
 
     url = update.message.text.strip()
     chat_id = update.message.chat_id
 
     if not ('youtube.com' in url or 'youtu.be' in url):
-        await update.message.reply_text("الرابط غير صالح. يرجى إرسال رابط YouTube صحيح.")
+        await update.message.reply_text("❌ الرابط غير صالح. يرجى إرسال رابط YouTube صحيح.")
         return
 
-    status_msg = await update.message.reply_text("جاري تحويل الفيديو إلى صوت...")
+    status_msg = await update.message.reply_text("⏳ جاري تحويل الفيديو إلى صوت MP3...")
 
     ydl_opts = {
         'format': 'bestaudio/best',
@@ -161,6 +186,7 @@ async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_T
             mp3_path = os.path.join(DOWNLOAD_FOLDER, f"{title}.mp3")
 
         if not os.path.exists(mp3_path):
+            # البحث عن ملف mp3 في المجلد في حال تغير الاسم
             for file in os.listdir(DOWNLOAD_FOLDER):
                 if file.endswith('.mp3'):
                     mp3_path = os.path.join(DOWNLOAD_FOLDER, file)
@@ -168,11 +194,14 @@ async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_T
 
         size_mb = os.path.getsize(mp3_path) / (1024 * 1024)
         if size_mb > 50:
-            await status_msg.edit_text(f"حجم الملف الصوتي ({size_mb:.1f} MB) أكبر من الحد المسموح به (50 MB). يرجى اختيار ملف أصغر.")
+            await status_msg.edit_text(
+                f"⚠️ حجم الملف الصوتي ({size_mb:.1f} MB) أكبر من الحد المسموح به (50 MB).\n"
+                "يرجى اختيار ملف أصغر أو رابط آخر."
+            )
             os.remove(mp3_path)
             return
 
-        await status_msg.edit_text("تم التحويل، جاري الإرسال...")
+        await status_msg.edit_text("✅ تم التحويل، جاري الإرسال...")
         with open(mp3_path, 'rb') as f:
             await context.bot.send_audio(chat_id=chat_id, audio=f, title=title, performer="YouTube")
         await status_msg.delete()
@@ -180,7 +209,10 @@ async def convert_video_to_audio(update: Update, context: ContextTypes.DEFAULT_T
 
     except Exception as e:
         logger.error(f"خطأ في تحويل الفيديو إلى صوت: {e}")
-        await status_msg.edit_text(f"حدث خطأ أثناء التحويل:\n{str(e)}\nيرجى المحاولة برابط آخر أو فيديو أقصر.")
+        await status_msg.edit_text(
+            f"❌ حدث خطأ أثناء التحويل:\n{str(e)}\n"
+            "يرجى المحاولة برابط آخر أو فيديو أقصر."
+        )
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
@@ -189,7 +221,7 @@ def main():
     app.add_handler(CallbackQueryHandler(button_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("البوت يعمل...")
+    print("🚀 البوت يعمل الآن...")
     app.run_polling()
 
 if __name__ == '__main__':
