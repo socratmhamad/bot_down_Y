@@ -93,6 +93,7 @@ async def download_video(update: Update, context: ContextTypes.DEFAULT_TYPE, qua
         'socket_timeout': 300,
         'http_chunk_size': 10 * 1024 * 1024,
         'concurrent_fragment_downloads': 4,
+        'cookiefile': 'cookies.txt',
     }
 
     try:
